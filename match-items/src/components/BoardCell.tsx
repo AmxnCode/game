@@ -1,20 +1,18 @@
-/**
- * Single cell on the game board.
- * Handles:
- * - Displaying the item (emoji + label)
- * - Tap to select
- * - Highlight when selected or hinted
- * - Sell long-press
- */
-
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import {
   Pressable,
   StyleSheet,
   Text,
   View,
-  Animated,
+  PanResponder,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
 import { ItemDef, ITEM_MAP } from '../constants/items';
 import { COLORS } from '../constants/config';
 
@@ -25,8 +23,21 @@ interface Props {
   isHinted: boolean;
   onTap: (index: number) => void;
   onLongPress: (index: number) => void;
+  onDragStart?: (index: number) => void;
+  onDragEnd?: (fromIndex: number, toIndex: number) => void;
   size: number;
 }
+
+const TIER_COLORS: Record<number, string> = {
+  1: '#a8a8b0',
+  2: '#4ade80',
+  3: '#60a5fa',
+  4: '#c084fc',
+  5: '#f59e0b',
+  6: '#f97316',
+  7: '#ef4444',
+  8: '#ffd700',
+};
 
 const BoardCell: React.FC<Props> = ({
   index,
@@ -35,88 +46,140 @@ const BoardCell: React.FC<Props> = ({
   isHinted,
   onTap,
   onLongPress,
+  onDragStart,
+  onDragEnd,
   size,
 }) => {
   const item: ItemDef | undefined = itemId ? ITEM_MAP.get(itemId) : undefined;
 
-  const handlePress = useCallback(() => onTap(index), [index, onTap]);
-  const handleLongPress = useCallback(() => onLongPress(index), [index, onLongPress]);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const isDragging = useSharedValue(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gesture) => {
+        return Math.abs(gesture.dx) > 8 || Math.abs(gesture.dy) > 8;
+      },
+      onPanResponderGrant: () => {
+        if (itemId && onDragStart) {
+          isDragging.value = true;
+          translateX.value = withTiming(0);
+          translateY.value = withTiming(0);
+          runOnJS(onDragStart)(index);
+        }
+      },
+      onPanResponderMove: (_, gesture) => {
+        translateX.value = gesture.dx;
+        translateY.value = gesture.dy;
+      },
+      onPanResponderRelease: (_, gesture) => {
+        if (!onDragEnd) return;
+        const cellWidth = size + 4;
+        const cols = 5;
+        const toIndex = index + Math.round(gesture.dx / cellWidth) + Math.round(gesture.dy / cellWidth) * cols;
+        if (toIndex >= 0 && toIndex < 40 && toIndex !== index) {
+          runOnJS(onDragEnd)(index, toIndex);
+        }
+        isDragging.value = false;
+        translateX.value = withSpring(0, { stiffness: 200, damping: 20 });
+        translateY.value = withSpring(0, { stiffness: 200, damping: 20 });
+      },
+      onPanResponderTerminate: () => {
+        isDragging.value = false;
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+      },
+    })
+  ).current;
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+    ],
+    zIndex: isDragging.value ? 100 : 1,
+  }));
+
+  const handlePress = useCallback(() => {
+    onTap(index);
+  }, [index, onTap]);
+
+  const handleLongPress = useCallback(() => {
+    onLongPress(index);
+  }, [index, onLongPress]);
 
   const bgColor = isSelected
-    ? COLORS.accent
+    ? COLORS.accent + '22'
     : isHinted
-    ? '#2a5030'
+    ? COLORS.success + '18'
     : item
-    ? item.color + '33'  // tinted with low alpha
+    ? item.color + '1a'
     : COLORS.cellEmpty;
 
   const borderColor = isSelected
-    ? COLORS.accentLight
+    ? COLORS.accent
     : isHinted
     ? COLORS.success
     : item
-    ? item.color + '88'
+    ? TIER_COLORS[item.tier] + '66'
     : COLORS.cellBorder;
 
   return (
-    <Pressable
-      onPress={handlePress}
-      onLongPress={handleLongPress}
-      delayLongPress={400}
-      style={({ pressed }) => [
-        styles.cell,
-        {
-          width: size,
-          height: size,
-          backgroundColor: bgColor,
-          borderColor: borderColor,
-          opacity: pressed ? 0.75 : 1,
-          transform: [{ scale: isSelected ? 1.05 : 1 }],
-        },
-      ]}
-      accessible
-      accessibilityRole="button"
-      accessibilityLabel={item ? `${item.label} tier ${item.tier}` : 'Empty cell'}
-      accessibilityHint={item ? 'Tap to select, long press to sell' : 'Tap a selected item to move here'}
+    <View
+      style={{ width: size, height: size, margin: 2 }}
+      {...panResponder.panHandlers}
     >
-      {item ? (
-        <View style={styles.itemContainer}>
-          <Text style={[styles.emoji, { fontSize: size * 0.38 }]}>
-            {item.emoji}
-          </Text>
-          <Text
-            style={[styles.tierDot, { fontSize: size * 0.14 }]}
-            numberOfLines={1}
-          >
-            {'●'.repeat(item.tier)}
-          </Text>
-        </View>
-      ) : null}
-    </Pressable>
+      <Pressable
+        onPress={handlePress}
+        onLongPress={handleLongPress}
+        delayLongPress={400}
+        style={({ pressed }) => [
+          styles.cell,
+          animatedStyle,
+          {
+            backgroundColor: bgColor,
+            borderColor: borderColor,
+            borderStyle: isHinted ? 'dashed' : 'solid',
+            opacity: pressed ? 0.85 : 1,
+          },
+        ]}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={item ? `${item.label} tier ${item.tier}` : 'Empty cell'}
+      >
+        {item ? (
+          <View style={styles.itemContainer}>
+            <Text style={styles.emoji}>{item.emoji}</Text>
+            <View style={[styles.tierDot, { backgroundColor: TIER_COLORS[item.tier] }]} />
+          </View>
+        ) : null}
+      </Pressable>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   cell: {
-    margin: 2,
-    borderRadius: 10,
+    flex: 1,
+    borderRadius: 12,
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
   },
   itemContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 1,
+    gap: 4,
   },
   emoji: {
-    lineHeight: undefined,
-    textAlign: 'center',
+    fontSize: 28,
   },
   tierDot: {
-    color: '#ffffff99',
-    letterSpacing: -1,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
 });
 

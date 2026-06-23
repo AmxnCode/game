@@ -1,19 +1,14 @@
-/**
- * Main game screen.
- * Assembles all components.
- */
-
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useGameState } from '../hooks/useGameState';
 import GameBoard from '../components/GameBoard';
@@ -21,11 +16,15 @@ import ScoreBar from '../components/ScoreBar';
 import GeneratorBar from '../components/GeneratorBar';
 import MergeChainGuide from '../components/MergeChainGuide';
 import GameOverModal from '../components/GameOverModal';
+import DailyRewardModal from '../components/DailyRewardModal';
+import SettingsModal from '../components/SettingsModal';
+import AchievementsModal from '../components/AchievementsModal';
+import LeaderboardModal from '../components/LeaderboardModal';
+import EventBanner from '../components/EventBanner';
 
 import { getBoardFillPercent, isBoardFull } from '../utils/gameEngine';
-import { COLORS } from '../constants/config';
+import { COLORS, CHAIN_UNLOCK_SCORES } from '../constants/config';
 
-// Floating toast for merge feedback
 interface Toast {
   text: string;
   isCombo: boolean;
@@ -33,6 +32,7 @@ interface Toast {
 }
 
 const GameScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const {
     state,
     isLoading,
@@ -43,10 +43,37 @@ const GameScreen: React.FC = () => {
     onSell,
     onNewGame,
     onShowHint,
+    dailyRewardAvailable,
+    onClaimDailyReward,
+    adAvailable,
+    onWatchAd,
+    onDoubleScoreAd,
+    settings,
+    onToggleSetting,
+    newAchievements,
+    clearNewAchievements,
   } = useGameState();
 
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [toastKey, setToastKey] = useState(0);
+  const [showDailyReward, setShowDailyReward] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+
+  useEffect(() => {
+    if (dailyRewardAvailable && !isLoading) {
+      const timer = setTimeout(() => setShowDailyReward(true), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [dailyRewardAvailable, isLoading]);
+
+  useEffect(() => {
+    if (newAchievements.length > 0) {
+      const timer = setTimeout(() => clearNewAchievements(), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [newAchievements, clearNewAchievements]);
 
   const showToast = useCallback((text: string, isCombo: boolean) => {
     const key = toastKey + 1;
@@ -83,8 +110,21 @@ const GameScreen: React.FC = () => {
     [onSell, showToast]
   );
 
+  const handleClaimDailyReward = useCallback(() => {
+    onClaimDailyReward();
+    setShowDailyReward(false);
+  }, [onClaimDailyReward]);
+
+  const handleNewGame = useCallback(() => {
+    setShowDailyReward(false);
+    onNewGame();
+  }, [onNewGame]);
+
   const fillPercent = getBoardFillPercent(state.cells);
   const boardFull = isBoardFull(state.cells);
+  const coinsEarned = state.coins;
+  const chainList: ('gem' | 'food' | 'magic')[] = ['gem', 'food', 'magic'];
+  const lastUnlockedIndex = chainList.findLastIndex((ch) => state.unlockedChains.includes(ch));
 
   if (isLoading) {
     return (
@@ -95,7 +135,7 @@ const GameScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <View style={[styles.safe, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
 
       <ScrollView
@@ -105,9 +145,23 @@ const GameScreen: React.FC = () => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.gameTitle}>Match Items</Text>
+          <View style={styles.headerRow}>
+            <Text style={styles.gameTitle}>Match Items</Text>
+            <Pressable
+              onPress={() => setShowSettings(true)}
+              style={styles.settingsBtn}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Open settings"
+            >
+              <Text style={styles.settingsIcon}>⚙️</Text>
+            </Pressable>
+          </View>
           <Text style={styles.tagline}>Merge Puzzle</Text>
         </View>
+
+        {/* Event banner */}
+        <EventBanner />
 
         {/* Score bar */}
         <ScoreBar
@@ -127,7 +181,6 @@ const GameScreen: React.FC = () => {
             onMove={onMove}
             onSell={handleSell}
           />
-          {/* Toast overlays */}
           <View style={styles.toastLayer} pointerEvents="none">
             {toasts.map((t) => (
               <View
@@ -140,9 +193,31 @@ const GameScreen: React.FC = () => {
           </View>
         </View>
 
+        {/* Achievement toast */}
+        {newAchievements.length > 0 && (
+          <View style={styles.achToast}>
+            <Text style={styles.achToastText}>
+              🏆 New Achievement{newAchievements.length > 1 ? 's' : ''} Unlocked!
+            </Text>
+          </View>
+        )}
+
+        {/* Ad reward button */}
+        {adAvailable && !state.isGameOver && (
+          <Pressable
+            onPress={onWatchAd}
+            style={({ pressed }) => [
+              styles.adRewardBtn,
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Text style={styles.adRewardText}>📺 Watch Ad — Get 25 Coins</Text>
+          </Pressable>
+        )}
+
         {/* Hint instruction */}
         <Text style={styles.tip}>
-          Tap to select · Tap matching item to merge · Long press to sell
+          Tap to select · Tap matching item to merge · Drag to move · Long press to sell
         </Text>
 
         {/* Generator bar */}
@@ -154,46 +229,74 @@ const GameScreen: React.FC = () => {
 
         {/* Bottom actions */}
         <View style={styles.actions}>
-          <Pressable
-            onPress={onShowHint}
-            style={({ pressed }) => [styles.actionBtn, { opacity: pressed ? 0.7 : 1 }]}
-            accessible
-            accessibilityRole="button"
-            accessibilityLabel="Show merge hint"
-          >
-            <Text style={styles.actionIcon}>💡</Text>
-            <Text style={styles.actionLabel}>Hint</Text>
-          </Pressable>
+          <View style={styles.actionRow}>
+            <Pressable
+              onPress={() => setShowAchievements(true)}
+              style={({ pressed }) => [styles.actionBtn, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              <Text style={styles.actionIcon}>🏆</Text>
+              <Text style={styles.actionLabel}>Achievements</Text>
+            </Pressable>
 
-          <MergeChainGuide unlockedChains={state.unlockedChains} />
+            <Pressable
+              onPress={onShowHint}
+              style={({ pressed }) => [styles.actionBtn, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              <Text style={styles.actionIcon}>💡</Text>
+              <Text style={styles.actionLabel}>Hint</Text>
+            </Pressable>
 
-          <Pressable
-            onPress={onNewGame}
-            style={({ pressed }) => [styles.actionBtn, { opacity: pressed ? 0.7 : 1 }]}
-            accessible
-            accessibilityRole="button"
-            accessibilityLabel="Start new game"
-          >
-            <Text style={styles.actionIcon}>🔄</Text>
-            <Text style={styles.actionLabel}>New Game</Text>
-          </Pressable>
+            <Pressable
+              onPress={() => setShowLeaderboard(true)}
+              style={({ pressed }) => [styles.actionBtn, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              <Text style={styles.actionIcon}>🏅</Text>
+              <Text style={styles.actionLabel}>Scores</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={handleNewGame}
+              style={({ pressed }) => [styles.actionBtn, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              <Text style={styles.actionIcon}>🔄</Text>
+              <Text style={styles.actionLabel}>New Game</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.actionRow}>
+            <MergeChainGuide unlockedChains={state.unlockedChains} />
+          </View>
         </View>
 
-        {/* Unlock progress */}
-        {!state.unlockedChains.includes('gem') && (
-          <View style={styles.unlockBar}>
-            <Text style={styles.unlockText}>
-              💎 Gems unlock at 200 pts ({Math.max(0, 200 - state.score)} to go)
-            </Text>
-          </View>
-        )}
-        {state.unlockedChains.includes('gem') && !state.unlockedChains.includes('food') && (
-          <View style={styles.unlockBar}>
-            <Text style={styles.unlockText}>
-              🍎 Food unlock at 600 pts ({Math.max(0, 600 - state.score)} to go)
-            </Text>
-          </View>
-        )}
+        {/* Unlock progress bars */}
+        {chainList.map((chain) => {
+          const prevIdx = chainList.indexOf(chain) - 1;
+          const prevUnlocked = prevIdx < 0 || state.unlockedChains.includes(chainList[prevIdx]);
+          const alreadyUnlocked = state.unlockedChains.includes(chain);
+          if (alreadyUnlocked || !prevUnlocked) return null;
+
+          const emoji = chain === 'gem' ? '💎' : chain === 'food' ? '🍎' : '✨';
+          const label = chain === 'gem' ? 'Gems' : chain === 'food' ? 'Food' : 'Magic';
+
+          return (
+            <View key={chain} style={styles.unlockBar}>
+              <Text style={styles.unlockLabel}>
+                {emoji} {label}
+              </Text>
+              <View style={styles.progressBarBg}>
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    { width: `${Math.min(100, (state.score / CHAIN_UNLOCK_SCORES[chain]) * 100)}%` as any },
+                  ]}
+                />
+              </View>
+              <Text style={styles.unlockText}>
+                {state.score} / {CHAIN_UNLOCK_SCORES[chain]} pts
+              </Text>
+            </View>
+          );
+        })}
       </ScrollView>
 
       {/* Game Over modal */}
@@ -202,9 +305,53 @@ const GameScreen: React.FC = () => {
         score={state.score}
         highScore={state.highScore}
         isNewHighScore={state.score >= state.highScore && state.score > 0}
-        onNewGame={onNewGame}
+        totalMerges={state.totalMerges}
+        bestCombo={state.bestCombo}
+        coinsEarned={coinsEarned}
+        adAvailable={adAvailable}
+        onNewGame={handleNewGame}
+        onDoubleScore={onDoubleScoreAd}
       />
-    </SafeAreaView>
+
+      {/* Daily Reward modal */}
+      <DailyRewardModal
+        visible={showDailyReward}
+        streakDay={state.dailyRewardDay}
+        onClaim={handleClaimDailyReward}
+        onClose={() => setShowDailyReward(false)}
+      />
+
+      {/* Settings modal */}
+      <SettingsModal
+        visible={showSettings}
+        settings={settings}
+        onToggle={onToggleSetting}
+        onClose={() => setShowSettings(false)}
+      />
+
+      {/* Achievements modal */}
+      <AchievementsModal
+        visible={showAchievements}
+        unlockedIds={state.unlockedAchievements}
+        state={{
+          totalMerges: state.totalMerges,
+          bestCombo: state.bestCombo,
+          itemsMerged: state.itemsMerged,
+          score: state.score,
+          coins: state.coins,
+          totalSold: state.totalSold,
+        }}
+        onClose={() => setShowAchievements(false)}
+      />
+
+      {/* Leaderboard modal */}
+      <LeaderboardModal
+        visible={showLeaderboard}
+        highScores={state.highScores}
+        currentScore={state.score}
+        onClose={() => setShowLeaderboard(false)}
+      />
+    </View>
   );
 };
 
@@ -225,18 +372,35 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
+    paddingHorizontal: 12,
     paddingBottom: 4,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
   },
   gameTitle: {
     color: COLORS.text,
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '900',
     letterSpacing: 0.5,
+    flex: 1,
+    textAlign: 'center',
+  },
+  settingsBtn: {
+    padding: 8,
+    position: 'absolute',
+    right: 4,
+  },
+  settingsIcon: {
+    fontSize: 20,
   },
   tagline: {
     color: COLORS.accentLight,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     letterSpacing: 2,
     textTransform: 'uppercase',
   },
@@ -255,64 +419,111 @@ const styles = StyleSheet.create({
   toast: {
     backgroundColor: '#000000cc',
     borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: COLORS.success,
+    borderColor: COLORS.success + '88',
   },
   toastCombo: {
-    borderColor: '#ff8844',
+    borderColor: COLORS.combo,
     backgroundColor: '#ff440030',
   },
   toastText: {
     color: COLORS.text,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
+  },
+  achToast: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: COLORS.gold + '66',
+    alignItems: 'center',
+  },
+  achToastText: {
+    color: COLORS.gold,
+    fontSize: 14,
+    fontWeight: '800',
   },
   tip: {
     color: COLORS.textDim,
     fontSize: 11,
     textAlign: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+  },
+  adRewardBtn: {
+    backgroundColor: COLORS.combo,
+    marginHorizontal: 12,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  adRewardText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
   },
   actions: {
+    gap: 8,
+    paddingHorizontal: 12,
+  },
+  actionRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
+    gap: 8,
   },
   actionBtn: {
+    flex: 1,
     backgroundColor: COLORS.surfaceRaised,
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    borderRadius: 12,
+    paddingVertical: 10,
     alignItems: 'center',
     gap: 2,
     borderWidth: 1,
     borderColor: COLORS.cellBorder,
+    maxWidth: 90,
   },
   actionIcon: {
     fontSize: 20,
   },
   actionLabel: {
     color: COLORS.textDim,
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 9,
+    fontWeight: '700',
   },
   unlockBar: {
     backgroundColor: COLORS.surface,
-    marginHorizontal: 16,
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    marginHorizontal: 12,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: COLORS.gold + '44',
+    borderColor: COLORS.gold + '33',
+    gap: 6,
+  },
+  unlockLabel: {
+    color: COLORS.gold,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  progressBarBg: {
+    height: 8,
+    backgroundColor: COLORS.cellBorder,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: COLORS.gold,
+    borderRadius: 4,
   },
   unlockText: {
-    color: COLORS.gold,
-    fontSize: 12,
-    textAlign: 'center',
+    color: COLORS.textDim,
+    fontSize: 11,
+    textAlign: 'right',
     fontWeight: '600',
   },
 });

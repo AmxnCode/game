@@ -1,13 +1,7 @@
-/**
- * Row of generator buttons — one per unlocked chain.
- * Tap to spawn a new tier-1 item onto the board.
- * No energy, no cooldown. Free to play as much as you want.
- */
-
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { GeneratorState } from '../utils/gameEngine';
-import { ITEM_MAP, getChainStart } from '../constants/items';
+import { getChainStart } from '../constants/items';
 import { COLORS } from '../constants/config';
 
 interface Props {
@@ -25,7 +19,7 @@ const CHAIN_LABELS: Record<string, string> = {
 const GeneratorBar: React.FC<Props> = ({ generators, onSpawn, boardIsFull }) => {
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Tap to spawn</Text>
+      <Text style={styles.label}>TAP TO SPAWN</Text>
       <View style={styles.row}>
         {generators.map((gen) => {
           const startItem = getChainStart(gen.chain);
@@ -42,7 +36,6 @@ const GeneratorBar: React.FC<Props> = ({ generators, onSpawn, boardIsFull }) => 
               accessible
               accessibilityRole="button"
               accessibilityLabel={`Spawn ${CHAIN_LABELS[gen.chain]} item`}
-              accessibilityState={{ disabled: boardIsFull }}
             >
               <Text style={styles.emoji}>{startItem.emoji}</Text>
               <Text style={styles.chainLabel}>{CHAIN_LABELS[gen.chain]}</Text>
@@ -51,7 +44,9 @@ const GeneratorBar: React.FC<Props> = ({ generators, onSpawn, boardIsFull }) => 
         })}
       </View>
       {boardIsFull && (
-        <Text style={styles.fullWarning}>⚠️ Board full — sell an item to continue</Text>
+        <View style={styles.warning}>
+          <Text style={styles.warningText}>Board full — sell an item</Text>
+        </View>
       )}
     </View>
   );
@@ -60,45 +55,51 @@ const GeneratorBar: React.FC<Props> = ({ generators, onSpawn, boardIsFull }) => 
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
+    gap: 10,
+    paddingHorizontal: 12,
   },
   label: {
     color: COLORS.textDim,
-    fontSize: 12,
-    letterSpacing: 0.5,
+    fontSize: 10,
+    letterSpacing: 1.5,
+    fontWeight: '700',
   },
   row: {
     flexDirection: 'row',
     gap: 12,
   },
   button: {
+    flex: 1,
     backgroundColor: COLORS.surfaceRaised,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    borderRadius: 16,
+    paddingVertical: 14,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: COLORS.accent + '88',
-    minWidth: 80,
+    borderColor: COLORS.accent + '44',
     gap: 4,
   },
   buttonDisabled: {
     borderColor: COLORS.cellBorder,
-    opacity: 0.5,
+    opacity: 0.4,
   },
   emoji: {
-    fontSize: 28,
+    fontSize: 30,
   },
   chainLabel: {
     color: COLORS.text,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  fullWarning: {
+  warning: {
+    backgroundColor: COLORS.danger + '18',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+  },
+  warningText: {
     color: COLORS.danger,
     fontSize: 12,
-    textAlign: 'center',
+    fontWeight: '600',
   },
 });
 

@@ -1,25 +1,13 @@
-/**
- * Item definitions for Match Items — Merge Puzzle
- *
- * Each "chain" is a merge evolution tree.
- * Merging 2 identical items produces the next tier.
- * Max tier = 8 per chain. This is always visible to the player (no guessing).
- *
- * Design principle: keep chains short & clear so players never need to Google.
- */
-
 export interface ItemDef {
-  id: string;        // unique key
-  tier: number;      // 1 = lowest, 8 = max
-  chain: string;     // which evolution chain this belongs to
-  emoji: string;     // visual representation (no assets needed)
-  label: string;     // display name
-  points: number;    // score value when created
-  color: string;     // cell background tint
+  id: string;
+  tier: number;
+  chain: string;
+  emoji: string;
+  label: string;
+  points: number;
+  color: string;
 }
 
-// ─── CHAIN: NATURE ───────────────────────────────────────────────
-// Seed → Sprout → Flower → Bush → Tree → Apple Tree → Golden Tree → Ancient Tree
 const NATURE: ItemDef[] = [
   { id: 'seed',         tier: 1, chain: 'nature', emoji: '🌱', label: 'Seed',         points: 1,    color: '#d4f0c0' },
   { id: 'sprout',       tier: 2, chain: 'nature', emoji: '🌿', label: 'Sprout',       points: 3,    color: '#b8e8a0' },
@@ -31,8 +19,6 @@ const NATURE: ItemDef[] = [
   { id: 'ancient_tree', tier: 8, chain: 'nature', emoji: '🌟', label: 'Ancient Tree', points: 800,  color: '#ffec99' },
 ];
 
-// ─── CHAIN: GEM ──────────────────────────────────────────────────
-// Pebble → Stone → Crystal → Gem → Ruby → Diamond → Star Gem → Cosmic Gem
 const GEM: ItemDef[] = [
   { id: 'pebble',      tier: 1, chain: 'gem', emoji: '🪨', label: 'Pebble',      points: 1,    color: '#e0e0e0' },
   { id: 'stone',       tier: 2, chain: 'gem', emoji: '💎', label: 'Stone',       points: 3,    color: '#d0d8e0' },
@@ -44,8 +30,6 @@ const GEM: ItemDef[] = [
   { id: 'cosmic_gem',  tier: 8, chain: 'gem', emoji: '🌠', label: 'Cosmic Gem',  points: 800,  color: '#c8a0ff' },
 ];
 
-// ─── CHAIN: FOOD ─────────────────────────────────────────────────
-// Berry → Apple → Cake → Pie → Feast → Banquet → Royal Feast → Legendary Meal
 const FOOD: ItemDef[] = [
   { id: 'berry',          tier: 1, chain: 'food', emoji: '🫐', label: 'Berry',          points: 1,   color: '#d8b4fe' },
   { id: 'apple',          tier: 2, chain: 'food', emoji: '🍎', label: 'Apple',          points: 3,   color: '#fca5a5' },
@@ -57,14 +41,23 @@ const FOOD: ItemDef[] = [
   { id: 'legendary_meal', tier: 8, chain: 'food', emoji: '🌈', label: 'Legendary Meal', points: 800, color: '#fbcfe8' },
 ];
 
-// ─── All items flat map ───────────────────────────────────────────
-export const ALL_ITEMS: ItemDef[] = [...NATURE, ...GEM, ...FOOD];
+const MAGIC: ItemDef[] = [
+  { id: 'spark',          tier: 1, chain: 'magic', emoji: '✨', label: 'Spark',          points: 2,   color: '#ffe0f0' },
+  { id: 'glow',           tier: 2, chain: 'magic', emoji: '💫', label: 'Glow',           points: 5,   color: '#ffc8e0' },
+  { id: 'charm',          tier: 3, chain: 'magic', emoji: '🍀', label: 'Charm',          points: 12,  color: '#ffa8d0' },
+  { id: 'spell',          tier: 4, chain: 'magic', emoji: '📜', label: 'Spell',          points: 30,  color: '#ff80c0' },
+  { id: 'wand',           tier: 5, chain: 'magic', emoji: '🪄', label: 'Wand',           points: 70,  color: '#ff60b0' },
+  { id: 'potion',         tier: 6, chain: 'magic', emoji: '🧪', label: 'Potion',         points: 160, color: '#ff40a0' },
+  { id: 'crystal_ball',  tier: 7, chain: 'magic', emoji: '🔮', label: 'Crystal Ball',   points: 400, color: '#ff20a0' },
+  { id: 'phoenix',       tier: 8, chain: 'magic', emoji: '🦄', label: 'Phoenix',        points: 1000, color: '#ff0090' },
+];
+
+export const ALL_ITEMS: ItemDef[] = [...NATURE, ...GEM, ...FOOD, ...MAGIC];
 
 export const ITEM_MAP = new Map<string, ItemDef>(
   ALL_ITEMS.map((item) => [item.id, item])
 );
 
-/** Given an item id, returns the next tier item in the same chain, or null if max tier */
 export function getNextTier(itemId: string): ItemDef | null {
   const current = ITEM_MAP.get(itemId);
   if (!current) return null;
@@ -73,14 +66,11 @@ export function getNextTier(itemId: string): ItemDef | null {
   ) ?? null;
 }
 
-/** Returns the first (tier-1) item of a chain */
 export function getChainStart(chain: string): ItemDef {
   return ALL_ITEMS.find((i) => i.chain === chain && i.tier === 1)!;
 }
 
-/** Items that spawn from the generator (tier 1 of each chain) */
 export const SPAWNABLE_ITEMS: ItemDef[] = ALL_ITEMS.filter((i) => i.tier === 1);
 
-/** Chains available in game */
-export const CHAINS = ['nature', 'gem', 'food'] as const;
+export const CHAINS = ['nature', 'gem', 'food', 'magic'] as const;
 export type Chain = typeof CHAINS[number];

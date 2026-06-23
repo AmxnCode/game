@@ -1,17 +1,5 @@
-/**
- * Game Over modal.
- * Shows final score and new game button.
- * No forced ads, no pay-to-continue wall.
- */
-
 import React from 'react';
-import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { COLORS } from '../constants/config';
 
 interface Props {
@@ -19,7 +7,12 @@ interface Props {
   score: number;
   highScore: number;
   isNewHighScore: boolean;
+  totalMerges: number;
+  bestCombo: number;
+  coinsEarned: number;
+  adAvailable: boolean;
   onNewGame: () => void;
+  onDoubleScore: () => void;
 }
 
 const GameOverModal: React.FC<Props> = ({
@@ -27,37 +20,57 @@ const GameOverModal: React.FC<Props> = ({
   score,
   highScore,
   isNewHighScore,
+  totalMerges,
+  bestCombo,
+  coinsEarned,
+  adAvailable,
   onNewGame,
+  onDoubleScore,
 }) => {
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Text style={styles.title}>Board Full!</Text>
-          <Text style={styles.subtitle}>No more merges possible</Text>
+          <Text style={styles.title}>Game Over</Text>
 
           {isNewHighScore && (
-            <Text style={styles.newBest}>🏆 New High Score!</Text>
+            <Text style={styles.newBest}>🏆 New Best!</Text>
           )}
 
-          <Text style={styles.scoreLabel}>Your Score</Text>
+          <Text style={styles.scoreLabel}>SCORE</Text>
           <Text style={styles.score}>{score.toLocaleString()}</Text>
 
-          <Text style={styles.bestLabel}>
-            Best: {highScore.toLocaleString()}
-          </Text>
+          <View style={styles.stats}>
+            <View style={styles.stat}>
+              <Text style={styles.statVal}>{totalMerges}</Text>
+              <Text style={styles.statLbl}>Merges</Text>
+            </View>
+            <View style={styles.stat}>
+              <Text style={styles.statVal}>x{bestCombo}</Text>
+              <Text style={styles.statLbl}>Best Combo</Text>
+            </View>
+            <View style={styles.stat}>
+              <Text style={styles.statVal}>🪙 {coinsEarned}</Text>
+              <Text style={styles.statLbl}>Earned</Text>
+            </View>
+          </View>
+
+          <Text style={styles.bestText}>Best: {highScore.toLocaleString()}</Text>
+
+          {adAvailable && (
+            <Pressable
+              onPress={onDoubleScore}
+              style={({ pressed }) => [styles.adBtn, { opacity: pressed ? 0.8 : 1 }]}
+            >
+              <Text style={styles.adBtnText}>📺 Double Score</Text>
+            </Pressable>
+          )}
 
           <Pressable
             onPress={onNewGame}
-            style={({ pressed }) => [
-              styles.button,
-              { opacity: pressed ? 0.8 : 1 },
-            ]}
-            accessible
-            accessibilityRole="button"
-            accessibilityLabel="Start new game"
+            style={({ pressed }) => [styles.playBtn, { opacity: pressed ? 0.8 : 1 }]}
           >
-            <Text style={styles.buttonText}>▶ Play Again</Text>
+            <Text style={styles.playBtnText}>▶ Play Again</Text>
           </Pressable>
         </View>
       </View>
@@ -68,39 +81,35 @@ const GameOverModal: React.FC<Props> = ({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: '#000000bb',
+    backgroundColor: '#00000088',
     justifyContent: 'center',
     alignItems: 'center',
   },
   card: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 32,
+    borderRadius: 20,
+    padding: 28,
     alignItems: 'center',
     width: 300,
     gap: 8,
-    borderWidth: 1.5,
-    borderColor: COLORS.accent,
+    borderWidth: 1,
+    borderColor: COLORS.cellBorder,
   },
   title: {
     color: COLORS.text,
     fontSize: 28,
     fontWeight: '900',
   },
-  subtitle: {
-    color: COLORS.textDim,
-    fontSize: 14,
-  },
   newBest: {
     color: COLORS.gold,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
-    marginVertical: 4,
   },
   scoreLabel: {
     color: COLORS.textDim,
-    fontSize: 12,
+    fontSize: 11,
     letterSpacing: 1,
+    fontWeight: '700',
     marginTop: 8,
   },
   score: {
@@ -108,19 +117,59 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontWeight: '900',
   },
-  bestLabel: {
+  stats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.cellBorder,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.cellBorder,
+    marginVertical: 8,
+  },
+  stat: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  statVal: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  statLbl: {
+    color: COLORS.textDim,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  bestText: {
     color: COLORS.textDim,
     fontSize: 13,
-    marginBottom: 8,
   },
-  button: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 40,
+  adBtn: {
+    backgroundColor: COLORS.combo,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    width: '100%',
+    alignItems: 'center',
     marginTop: 8,
   },
-  buttonText: {
+  adBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  playBtn: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  playBtnText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '800',
