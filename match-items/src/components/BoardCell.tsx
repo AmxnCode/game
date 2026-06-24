@@ -127,8 +127,8 @@ const BoardCell: React.FC<Props> = ({
     : COLORS.cellBorder;
 
   return (
-    <View
-      style={{ width: size, height: size, margin: 2 }}
+    <Animated.View
+      style={[{ width: size, height: size, margin: 2 }, animatedStyle]}
       {...panResponder.panHandlers}
     >
       <Pressable
@@ -137,7 +137,6 @@ const BoardCell: React.FC<Props> = ({
         delayLongPress={400}
         style={({ pressed }) => [
           styles.cell,
-          animatedStyle,
           {
             backgroundColor: bgColor,
             borderColor: borderColor,
@@ -156,7 +155,7 @@ const BoardCell: React.FC<Props> = ({
           </View>
         ) : null}
       </Pressable>
-    </View>
+    </Animated.View>
   );
 };
 
