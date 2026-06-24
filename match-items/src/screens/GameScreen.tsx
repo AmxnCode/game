@@ -21,6 +21,7 @@ import SettingsModal from '../components/SettingsModal';
 import AchievementsModal from '../components/AchievementsModal';
 import LeaderboardModal from '../components/LeaderboardModal';
 import EventBanner from '../components/EventBanner';
+import AchievementCelebrationModal from '../components/AchievementCelebrationModal';
 
 import { getBoardFillPercent, isBoardFull } from '../utils/gameEngine';
 import { COLORS, CHAIN_UNLOCK_SCORES } from '../constants/config';
@@ -60,6 +61,7 @@ const GameScreen: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [celebratingAchievement, setCelebratingAchievement] = useState<string | null>(null);
 
   useEffect(() => {
     if (dailyRewardAvailable && !isLoading) {
@@ -69,11 +71,10 @@ const GameScreen: React.FC = () => {
   }, [dailyRewardAvailable, isLoading]);
 
   useEffect(() => {
-    if (newAchievements.length > 0) {
-      const timer = setTimeout(() => clearNewAchievements(), 4000);
-      return () => clearTimeout(timer);
+    if (newAchievements.length > 0 && celebratingAchievement === null) {
+      setCelebratingAchievement(newAchievements[0]);
     }
-  }, [newAchievements, clearNewAchievements]);
+  }, [newAchievements, celebratingAchievement]);
 
   const showToast = useCallback((text: string, isCombo: boolean) => {
     const key = toastKey + 1;
@@ -114,6 +115,11 @@ const GameScreen: React.FC = () => {
     onClaimDailyReward();
     setShowDailyReward(false);
   }, [onClaimDailyReward]);
+
+  const handleCelebrationClose = useCallback(() => {
+    setCelebratingAchievement(null);
+    clearNewAchievements();
+  }, [clearNewAchievements]);
 
   const handleNewGame = useCallback(() => {
     setShowDailyReward(false);
@@ -192,15 +198,6 @@ const GameScreen: React.FC = () => {
             ))}
           </View>
         </View>
-
-        {/* Achievement toast */}
-        {newAchievements.length > 0 && (
-          <View style={styles.achToast}>
-            <Text style={styles.achToastText}>
-              🏆 New Achievement{newAchievements.length > 1 ? 's' : ''} Unlocked!
-            </Text>
-          </View>
-        )}
 
         {/* Ad reward button */}
         {adAvailable && !state.isGameOver && (
@@ -351,6 +348,13 @@ const GameScreen: React.FC = () => {
         currentScore={state.score}
         onClose={() => setShowLeaderboard(false)}
       />
+
+      {/* Achievement celebration */}
+      <AchievementCelebrationModal
+        visible={celebratingAchievement !== null}
+        achievementId={celebratingAchievement}
+        onClose={handleCelebrationClose}
+      />
     </View>
   );
 };
@@ -430,21 +434,6 @@ const styles = StyleSheet.create({
   },
   toastText: {
     color: COLORS.text,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  achToast: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    marginHorizontal: 16,
-    borderWidth: 1,
-    borderColor: COLORS.gold + '66',
-    alignItems: 'center',
-  },
-  achToastText: {
-    color: COLORS.gold,
     fontSize: 14,
     fontWeight: '800',
   },
